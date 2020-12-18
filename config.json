@@ -1,6 +1,6 @@
 {
 	"prefix": ["JARVIS", "J"],
-    "token": "Nzg4NjI4NDg2ODU2MTE0MTk2.X9mRgw.O71o-qA0oaWEnXBw8k0zzC0b6kk",
+    "token": 'put_token_here',
     "meaning_of_life": 42,
 	"passwords_array": ["please", "dont", "hack", "me"],
 	"secret_passcodes": {
