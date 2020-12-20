@@ -1,7 +1,7 @@
 {
     "prefix":  "JARVIS",
     "alias": "J!",
-    "token": "Nzg4NjI4NDg2ODU2MTE0MTk2.X9mRgw.wX3pDmyMkndM7CTzahoMt_Yil3A",
+    "token": "PUT_TOKEN_HERE",
     "meaning_of_life": 42,
 	"passwords_array": ["please", "dont", "hack", "me"],
 	"secret_passcodes": {
