@@ -1,24 +1,17 @@
+/* eslint-disable no-unused-vars */
+const fs = require('fs');
 const Discord = require('discord.js');
-const config = require('./config.json');
+const { prefix, token, alias } = require('./config.json');
 const client = new Discord.Client();
+client.commands = new Discord.Collection();
 
-const no_auth = {
-    color: 0x0099ff,
-    description: 'Not authorized to use command',
-    timestamp: new Date(),
-};
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+const cooldowns = new Discord.Collection();
 
-const kick = {
-    color: 0x0099ff,
-    description: 'Kicked member',
-    timestamp: new Date(),
-};
-
-const ban = {
-    color: 0x0099ff,
-    description: 'Banned member',
-    timestamp: new Date(),
-};
+for (const file of commandFiles) {
+    const command = require(`./commands/${file}`);
+    client.commands.set(command.name, command);
+}
 
 const protocols = {
     color: 0x099ff,
@@ -57,36 +50,66 @@ client.once('ready', () => {
 });
 
 client.on('message', message => {
-    if ((message.content.startsWith(config.prefix[0]) || message.content.startsWith(config.prefix[1])) && !message.author.bot) {
-        if (message.content.includes('protocols')) {
-            message.channel.send({ embed : protocols });
+
+    const msg = message.content.toUpperCase();
+
+    if ((!msg.startsWith(prefix) && !msg.startsWith(alias)) || message.author.bot) return;
+
+    let args = '';
+
+
+    if (msg.startsWith(prefix)) {args = message.content.slice(prefix.length).trim().split(/ +/);}
+    else if (msg.startsWith(alias)) {args = message.content.slice(alias.length).trim().split(/ +/);}
+
+    const commandName = args.shift().toLowerCase();
+
+
+    const command = client.commands.get(commandName) || client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(commandName));
+
+    if (!command) return;
+
+    if (command.guildOnly && message.channel.type === 'dm') {
+        return message.reply('I can\'t execute that command inside DMs!');
+    }
+
+    if (command.args && !args.length) {
+        let reply = `You didn't provide any arguments, ${message.author}!`;
+
+        if (command.usage) {
+            reply += `\nThe proper usage would be: \`${prefix}${command.name} ${command.usage}\``;
         }
-        else if (message.content.includes('destroy') || message.content.includes('des') || message.content.includes('d')) {
-            const member = message.mentions.members.first();
-            ban.description = 'Banned ' + member.displayName;
-            if (message.member.hasPermission('BAN_MEMBERS')) {
-                message.channel.send({ embed : ban });
-                member.ban();
-            }
-            else {
-                message.channel.send({ embed : no_auth });
-            }
+
+        return message.channel.send(reply);
+    }
+
+    if (!cooldowns.has(command.name)) {
+        cooldowns.set(command.name, new Discord.Collection());
+    }
+
+    const now = Date.now();
+    const timestamps = cooldowns.get(command.name);
+    const cooldownAmount = (command.cooldown || 3) * 1000;
+
+    if (timestamps.has(message.author.id)) {
+        const expirationTime = timestamps.get(message.author.id) + cooldownAmount;
+
+        if (now < expirationTime) {
+            const timeLeft = (expirationTime - now) / 1000;
+            return message.reply(`please wait ${timeLeft.toFixed(1)} more second(s) before reusing the \`${command.name}\` command.`);
         }
-        else if (message.content.includes('neutralize') || message.content.includes('neut') || message.content.includes('n')) {
-            const member = message.mentions.members.first();
-            if (message.member.hasPermission('KICK_MEMBERS')) {
-                kick.description = 'Kicked ' + member.displayName;
-                message.channel.send({ embed : kick });
-                member.kick();
-            }
-            else {
-                message.channel.send({ embed : no_auth });
-            }
-        }
-        else {
-            message.channel.send({ embed : commands });
-        }
+    }
+
+    timestamps.set(message.author.id, now);
+    setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
+
+    try {
+
+        command.execute(message, args);
+    }
+    catch (error) {
+        console.error(error);
+        message.reply('There was an error trying to execute that command!');
     }
 });
 
-client.login(config.token);
+client.login(token);
